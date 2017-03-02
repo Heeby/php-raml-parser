@@ -5,6 +5,7 @@ namespace Raml\Validator;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Raml\Exception\InvalidSchemaException;
+use Raml\Exception\InvalidTypeException;
 use Raml\Exception\ValidationException;
 use Raml\NamedParameter;
 
@@ -116,17 +117,28 @@ class ResponseValidator
 
         $schemaBody = $this->schemaHelper->getResponseBody($method, $path, $statusCode, $contentType);
 
-        if (($schema = $schemaBody->getSchema()) === null) {
+        if (($definition = $schemaBody->getDefinitionInterface()) === null) {
             return;
         }
 
         $body = $response->getBody()->getContents();
 
         try {
-            $schema->validate($body);
+            $definition->validate($body);
         } catch (InvalidSchemaException $exception) {
             $message = sprintf(
                 'Response body for %s %s with content type %s and status code %s does not match schema: %s',
+                strtoupper($method),
+                $path,
+                $contentType,
+                $statusCode,
+                $this->getSchemaErrorsAsString($exception->getErrors())
+            );
+
+            throw new ValidatorResponseException($message, 0, $exception);
+        } catch (InvalidTypeException $exception) {
+            $message = sprintf(
+                'Response body for %s %s with content type %s and status code %s does not match type: %s',
                 strtoupper($method),
                 $path,
                 $contentType,
@@ -158,5 +170,54 @@ class ResponseValidator
         return join(', ', array_map(function (array $error) {
             return sprintf('%s (%s)', $error['property'], $error['constraint']);
         }, $errors));
+    }
+
+    /**
+     * @param ResponseInterface $response
+     * @param $schema
+     * @param $method
+     * @param $path
+     * @param $contentType
+     * @param $statusCode
+     * @throws ValidatorResponseException
+     */
+    private function validateSchema(ResponseInterface $response, $schema, $method, $path, $contentType, $statusCode)
+    {
+        $body = $response->getBody()->getContents();
+
+        try {
+            $schema->validate($body);
+        } catch (InvalidSchemaException $exception) {
+            $message = sprintf(
+                'Response body for %s %s with content type %s and status code %s does not match schema: %s',
+                strtoupper($method),
+                $path,
+                $contentType,
+                $statusCode,
+                $this->getSchemaErrorsAsString($exception->getErrors())
+            );
+
+            throw new ValidatorResponseException($message, 0, $exception);
+        }
+    }
+
+    private function validateType($response, $schema, $method, $path, $contentType, $statusCode)
+    {
+        $body = $response->getBody()->getContents();
+
+        try {
+            $schema->validate($body);
+        } catch (InvalidSchemaException $exception) {
+            $message = sprintf(
+                'Response body for %s %s with content type %s and status code %s does not match schema: %s',
+                strtoupper($method),
+                $path,
+                $contentType,
+                $statusCode,
+                $this->getSchemaErrorsAsString($exception->getErrors())
+            );
+
+            throw new ValidatorResponseException($message, 0, $exception);
+        }
     }
 }

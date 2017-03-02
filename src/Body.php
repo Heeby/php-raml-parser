@@ -3,8 +3,9 @@
 namespace Raml;
 
 use Raml\Schema\SchemaDefinitionInterface;
-
 use Raml\Exception\BadParameter\InvalidSchemaDefinitionException;
+use Raml\Type\TypeDefinitionInterface;
+use Raml\Validator\DefinitionInterface;
 
 /**
  * A body
@@ -38,7 +39,7 @@ class Body implements BodyInterface, ArrayInstantiationInterface
      *
      * @see http://raml.org/spec.html#schema
      *
-     * @var SchemaDefinitionInterface|string
+     * @var DefinitionInterface|string
      */
     private $schema;
 
@@ -56,7 +57,7 @@ class Body implements BodyInterface, ArrayInstantiationInterface
      *
      * @see http://raml.org/spec.html#type-declarations
      *
-     * @var SchemaDefinitionInterface|string
+     * @var DefinitionInterface|string
      */
     private $type;
 
@@ -158,11 +159,19 @@ class Body implements BodyInterface, ArrayInstantiationInterface
     /**
      * Get the schema
      *
-     * @return SchemaDefinitionInterface|string
+     * @return DefinitionInterface|string
      */
     public function getSchema()
     {
         return $this->schema;
+    }
+
+    /**
+     * @return DefinitionInterface
+     */
+    public function getDefinitionInterface()
+    {
+        return $this->type ?? $this->schema;
     }
 
     /**
@@ -213,6 +222,9 @@ class Body implements BodyInterface, ArrayInstantiationInterface
         $this->examples[] = $example;
     }
 
+    /**
+     * @return DefinitionInterface|string
+     */
     public function getType()
     {
         return $this->type;
@@ -220,7 +232,7 @@ class Body implements BodyInterface, ArrayInstantiationInterface
 
     public function setType($type)
     {
-        if (!is_string($type) && !$type instanceof SchemaDefinitionInterface) {
+        if (!is_string($type) && !$type instanceof TypeDefinitionInterface) {
             throw new InvalidSchemaDefinitionException();
         }
 

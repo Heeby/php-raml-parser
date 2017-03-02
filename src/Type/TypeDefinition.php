@@ -1,19 +1,15 @@
 <?php
 
-namespace Raml\Schema\Definition;
+namespace Raml\Type;
 
 use Raml\Exception\InvalidJsonException;
-use Raml\Exception\InvalidSchemaException;
-use \Raml\Schema\SchemaDefinitionInterface;
 
-class TypeDefinition implements SchemaDefinitionInterface
+class TypeDefinition implements TypeDefinitionInterface
 {
     /**
      * @var \stdClass
      */
     private $type;
-
-    // --
 
     /**
      * @param \stdClass $type
@@ -22,9 +18,6 @@ class TypeDefinition implements SchemaDefinitionInterface
     {
         $this->type = $type;
     }
-
-    // ---
-    // SchemaDefinitionInterface
 
     /**
      * Validate a JSON string against the schema
@@ -56,8 +49,6 @@ class TypeDefinition implements SchemaDefinitionInterface
     {
         return json_encode($this->type);
     }
-
-    // ---
 
     /**
      * Validates a json object

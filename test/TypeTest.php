@@ -50,7 +50,7 @@ class TypeTest extends PHPUnit_Framework_TestCase
         $body = $response->getBodyByType('application/json');
         $type = $body->getType();
 
-        $this->setExpectedException('\Raml\Exception\InvalidSchemaException');
+        $this->setExpectedException('\Raml\Exception\InvalidTypeException');
         $this->assertTrue($type->validate('[{"artist":"An artist"}]'));
     }
 
@@ -65,7 +65,7 @@ class TypeTest extends PHPUnit_Framework_TestCase
         $body = $response->getBodyByType('application/json');
         $type = $body->getType();
 
-        $this->setExpectedException('\Raml\Exception\InvalidSchemaException');
+        $this->setExpectedException('\Raml\Exception\InvalidTypeException');
         $type->validate('{}');
     }
 }

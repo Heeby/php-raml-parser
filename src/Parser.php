@@ -9,13 +9,13 @@ use Raml\FileLoader\DefaultFileLoader;
 use Raml\FileLoader\FileLoaderInterface;
 use Raml\FileLoader\JsonSchemaFileLoader;
 use Raml\Schema\Parser\JsonSchemaParser;
-use Raml\Schema\Parser\TypeParser;
 use Raml\Schema\Parser\XmlSchemaParser;
 use Raml\Schema\SchemaParserInterface;
 use Raml\SecurityScheme\SecuritySettingsParser\DefaultSecuritySettingsParser;
 use Raml\SecurityScheme\SecuritySettingsParser\OAuth1SecuritySettingsParser;
 use Raml\SecurityScheme\SecuritySettingsParser\OAuth2SecuritySettingsParser;
 use Raml\SecurityScheme\SecuritySettingsParserInterface;
+use Raml\Type\TypeParser;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -399,7 +399,7 @@ class Parser
                 if (isset($value['type']) && !$this->isBuiltInType($value)) {
                     $schema = null;
                     try {
-                        $schema = (new TypeParser())->createSchemaDefinition($value['type']);
+                        $schema = (new TypeParser())->createTypeDefinition($value['type']);
                     } catch (\RuntimeException $e) {
                     }
 

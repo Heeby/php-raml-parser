@@ -9,6 +9,7 @@ use Raml\FileLoader\DefaultFileLoader;
 use Raml\FileLoader\FileLoaderInterface;
 use Raml\FileLoader\JsonSchemaFileLoader;
 use Raml\Schema\Parser\JsonSchemaParser;
+use Raml\Schema\Parser\TypeParser;
 use Raml\Schema\Parser\XmlSchemaParser;
 use Raml\Schema\SchemaParserInterface;
 use Raml\SecurityScheme\SecuritySettingsParser\DefaultSecuritySettingsParser;
@@ -260,6 +261,25 @@ class Parser
             }
         }
 
+        if (isset($ramlData['types'])) {
+            $types = [];
+            foreach ($ramlData['types'] as $typeName => $type) {
+                $types[$typeName] = $type;
+            }
+
+            foreach ($ramlData as $key => $value) {
+                if (0 === strpos($key, '/')) {
+                    if (isset($types)) {
+                        $value = $this->replaceTypes($value, $types);
+                    }
+                    if (is_array($value)) {
+                        $value = $this->recurseAndParseTypes($value, $rootDir);
+                    }
+                    $ramlData[$key] = $value;
+                }
+            }
+        }
+
         if (isset($ramlData['securitySchemes'])) {
             $ramlData['securitySchemes'] = $this->parseSecuritySettings($ramlData['securitySchemes']);
         }
@@ -287,6 +307,32 @@ class Parser
                 }
             } else {
                 $array[$key] = $this->replaceSchemas($value, $schemas);
+            }
+        }
+
+        return $array;
+    }
+
+    /**
+     * Replaces type into the raml file
+     *
+     * @param  array $array
+     * @param  array $types List of available schema definition
+     *
+     * @return array
+     */
+    private function replaceTypes($array, $types)
+    {
+        if (!is_array($array)) {
+            return $array;
+        }
+        foreach ($array as $key => $value) {
+            if ('type' === $key) {
+                if (isset($types[$value])) {
+                    $array[$key] = $types[$value];
+                }
+            } else {
+                $array[$key] = $this->replaceTypes($value, $types);
             }
         }
 
@@ -329,6 +375,41 @@ class Parser
                     $value['schema'] = $schema;
                 } else {
                     $value = $this->recurseAndParseSchemas($value, $rootDir);
+                }
+            }
+        }
+
+        return $array;
+    }
+
+    /**
+     * Recurses though resources and replaces type strings
+     *
+     * @param array  $array
+     * @param string $rootDir
+     *
+     * @throws InvalidSchemaFormatException
+     *
+     * @return array
+     */
+    private function recurseAndParseTypes($array, $rootDir)
+    {
+        foreach ($array as $key => &$value) {
+            if (is_array($value)) {
+                if (isset($value['type']) && !$this->isBuiltInType($value)) {
+                    $schema = null;
+                    try {
+                        $schema = (new TypeParser())->createSchemaDefinition($value['type']);
+                    } catch (\RuntimeException $e) {
+                    }
+
+                    if ($schema === null) {
+                        throw new InvalidSchemaFormatException();
+                    }
+
+                    $value['type'] = $schema;
+                } else {
+                    $value = $this->recurseAndParseTypes($value, $rootDir);
                 }
             }
         }
@@ -411,7 +492,7 @@ class Parser
             foreach ($ramlData as $key => $value) {
                 if (strpos($key, '/') === 0) {
                     $name = (isset($value['displayName'])) ? $value['displayName'] : substr($key, 1);
-                    $ramlData[$key] = $this->replaceTypes($value, $keyedTraits, $key, $name, $key);
+                    $ramlData[$key] = $this->replaceResourceTypes($value, $keyedTraits, $key, $name, $key);
                 }
             }
         }
@@ -430,9 +511,15 @@ class Parser
     {
         if (isset($ramlData['traits'])) {
             $keyedTraits = [];
-            foreach ($ramlData['traits'] as $trait) {
-                foreach ($trait as $k => $t) {
-                    $keyedTraits[$k] = $t;
+            foreach ($ramlData['traits'] as $key => $trait) {
+                if (is_int($key)) {
+                    foreach ($trait as $k => $t) {
+                        $keyedTraits[$k] = $t;
+                    }
+                } else {
+                    foreach ($trait as $k => $t) {
+                        $keyedTraits[$key][$k] = $t;
+                    }
                 }
             }
 
@@ -642,7 +729,7 @@ class Parser
      *
      * @return array
      */
-    private function replaceTypes($raml, $types, $path, $name, $parentKey = null)
+    private function replaceResourceTypes($raml, $types, $path, $name, $parentKey = null)
     {
         if (strpos($path, '/') !== 0 || !is_array($raml)) {
             return $raml;
@@ -664,13 +751,13 @@ class Parser
                     $type = $this->applyTraitVariables($traitVariables, $types[$value]);
                 }
 
-                $newArray = array_replace_recursive($newArray, $this->replaceTypes($type, $types, $path, $name, $key));
+                $newArray = array_replace_recursive($newArray, $this->replaceResourceTypes($type, $types, $path, $name, $key));
             } else {
                 $newName = $name;
                 if (strpos($key, '/') === 0 && !preg_match('/^\/\{.+\}$/', $key)) {
                     $newName = (isset($value['displayName'])) ? $value['displayName'] : substr($key, 1);
                 }
-                $newValue = $this->replaceTypes($value, $types, $path, $newName, $key);
+                $newValue = $this->replaceResourceTypes($value, $types, $path, $newName, $key);
 
                 if (isset($newArray[$key]) && is_array($newArray[$key])) {
                     $newArray[$key] = array_replace_recursive($newArray[$key], $newValue);
@@ -742,5 +829,30 @@ class Parser
         }
 
         return $newTrait;
+    }
+
+    /**
+     * @param string $value
+     * @return bool
+     */
+    private function isBuiltInType($value)
+    {
+        return in_array($value['type'],
+            [
+                'time-only',
+                'datetime',
+                'datetime-only',
+                'date-only',
+                'number',
+                'integer',
+                'boolean',
+                'string',
+                'null',
+                'file',
+                'array',
+                'object',
+                'union',
+            ]
+        );
     }
 }

@@ -23,7 +23,7 @@ class Body implements BodyInterface, ArrayInstantiationInterface
     private $description;
 
     /**
-     * The media type of the body
+     * The media type of the body. Mutually exclusive with type
      *
      * @see http://raml.org/spec.html#body
      *
@@ -50,6 +50,15 @@ class Body implements BodyInterface, ArrayInstantiationInterface
      * @var string[]
      */
     private $examples;
+
+    /**
+     * Type of the body. Mutually exclusive with schema
+     *
+     * @see http://raml.org/spec.html#type-declarations
+     *
+     * @var SchemaDefinitionInterface|string
+     */
+    private $type;
 
     // ---
 
@@ -94,6 +103,8 @@ class Body implements BodyInterface, ArrayInstantiationInterface
 
         if (isset($data['schema'])) {
             $body->setSchema($data['schema']);
+        } elseif (isset($data['type'])) {
+            $body->setType($data['type']);
         }
 
         if (isset($data['example'])) {
@@ -200,5 +211,19 @@ class Body implements BodyInterface, ArrayInstantiationInterface
     public function addExample($example)
     {
         $this->examples[] = $example;
+    }
+
+    public function getType()
+    {
+        return $this->type;
+    }
+
+    public function setType($type)
+    {
+        if (!is_string($type) && !$type instanceof SchemaDefinitionInterface) {
+            throw new InvalidSchemaDefinitionException();
+        }
+
+        $this->type = $type;
     }
 }
